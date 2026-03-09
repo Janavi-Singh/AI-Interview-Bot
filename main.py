@@ -1,0 +1,255 @@
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from parsers import extract_text
+from ai_engine import parse_jd, parse_resume, generate_question_pool, evaluate_candidate_answer
+import json
+from database import jobs_collection, candidates_collection, interviews_collection
+from audio_utils import synthesize_speech
+from stt_utils import StreamingAudioProcessor
+from datetime import datetime
+import asyncio
+import base64
+import os
+import threading
+from fastapi.responses import HTMLResponse
+
+app = FastAPI(title="AI Interview Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ==========================================
+# 1. PREPARE INTERVIEW ROUTE (HTTP POST)
+# ==========================================
+@app.post("/prepare-interview/")
+async def prepare_interview_session(
+    js_id: str = Form(...),
+    contest_id: str = Form(...),
+    recruiter_id: str = Form(...),
+    resume_file: UploadFile = File(...),
+    jd_file: UploadFile = File(...)
+):
+    try:
+        resume_bytes = await resume_file.read()
+        jd_bytes = await jd_file.read()
+        resume_text = await extract_text(resume_bytes, resume_file.filename)
+        jd_text = await extract_text(jd_bytes, jd_file.filename)
+        
+        parsed_jd = parse_jd(jd_text, contest_id)
+        jobs_collection.update_one(
+            {"_id": contest_id}, 
+            {"$set": {"recruiter_id": recruiter_id, "jdContent": parsed_jd, "raw_jd_text": jd_text}}, 
+            upsert=True
+        )
+        
+        parsed_resume = parse_resume(resume_text, js_id)
+        candidates_collection.update_one(
+            {"_id": js_id}, 
+            {"$set": {"profile": parsed_resume, "raw_resume_text": resume_text}}, 
+            upsert=True
+        )
+
+        generated_questions = generate_question_pool(parsed_jd, parsed_resume)
+        session_id = f"{js_id}_{contest_id}"
+
+        interviews_collection.update_one(
+            {"sessionId": session_id},
+            {"$set": {
+                "job_id": contest_id, 
+                "candidate_id": js_id,
+                "generatedQuestions": generated_questions, 
+                "asked_question_ids": [],
+                "transcript": [], 
+                "answers": [], 
+                "scores": [], 
+                "status": "pending"
+            }}, 
+            upsert=True
+        )
+
+        interview_link = f"http://localhost:8000/test-interview/{session_id}"
+        print(f"✅ INTERVIEW PREPARED: {session_id}")
+
+        # Return the parsed data and questions to the frontend
+        return {
+            "status": "success",
+            "message": "JD, Resume, and Question Pool parsed and stored successfully.",
+            "data": {
+                "session_id": session_id,
+                "interview_link": interview_link,
+                "parsed_jd": parsed_jd,
+                "parsed_resume": parsed_resume,
+                "total_questions_generated": len(generated_questions),
+                "generated_questions": generated_questions
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# 2. GET INTERVIEW SESSION DETAILS (HTTP GET)
+# ==========================================
+@app.get("/api/interview-session/{session_id}")
+async def get_interview_session(session_id: str):
+    """
+    Fetches the current state, transcript, and scores of an interview session.
+    Perfect for the recruiter dashboard to view results.
+    """
+    try:
+        doc = interviews_collection.find_one({"sessionId": session_id})
+        
+        if not doc:
+            raise HTTPException(status_code=404, detail="Interview session not found.")
+            
+        # Remove MongoDB's internal _id field as it is not JSON serializable
+        doc.pop('_id', None)
+        
+        return {
+            "status": "success",
+            "data": doc
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# 3. LIVE INTERVIEW ROUTE (WEBSOCKET)
+# ==========================================
+
+active_connections = {}
+MAX_QUESTIONS = 12
+
+@app.websocket("/ws/interview/{session_id}")
+async def interview_websocket(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+    active_connections[session_id] = websocket
+    loop = asyncio.get_running_loop()
+    
+    interview_doc = interviews_collection.find_one({"sessionId": session_id})
+    if not interview_doc:
+        await websocket.send_json({"type": "error", "message": "Session not found."})
+        await websocket.close()
+        return
+
+    pool = interview_doc.get("generatedQuestions", [])
+    asked_ids = interview_doc.get("asked_question_ids", [])
+    current_question = pool[0] if not asked_ids else next((q for q in pool if q.get("id") == asked_ids[-1]), pool[0])
+
+    # Async Callbacks for STT Thread
+    async def on_interim(text: str):
+        await websocket.send_json({"type": "interim_transcript", "text": text})
+
+    async def process_final_answer(user_answer: str):
+        nonlocal current_question
+        
+        processor.mute() # Stop listening while AI thinks
+        await websocket.send_json({"type": "transcript_success", "text": user_answer})
+
+        current_doc = interviews_collection.find_one({"sessionId": session_id})
+        current_asked_ids = current_doc.get("asked_question_ids", [])
+        
+        pool_ids_asked = [i for i in current_asked_ids if not str(i).startswith("dyn_")]
+        available_questions = [q for q in pool if q.get("id") not in pool_ids_asked]
+        raw_transcript = current_doc.get("transcript", [])
+        recent_context = "\n".join([f"{msg['speaker'].upper()}: {msg['text']}" for msg in raw_transcript[-4:]])
+
+        # Evaluate Answer
+        evaluation = evaluate_candidate_answer(current_question, user_answer, available_questions, recent_context)
+        score_val = int(evaluation.get("score", 5))
+
+        interviews_collection.update_one(
+            {"sessionId": session_id},
+            {"$push": {
+                "answers": {"question_id": current_question.get("id"), "text": user_answer, "score": score_val},
+                "transcript": {"speaker": "candidate", "text": user_answer, "timestamp": datetime.utcnow().isoformat()}
+            }}
+        )
+
+        if len(current_asked_ids) >= MAX_QUESTIONS or not available_questions:
+            closing_msg = "Thank you for your time. Your answers were insightful. Have a great day!"
+            audio_b64 = synthesize_speech(closing_msg)
+            interviews_collection.update_one({"sessionId": session_id}, {"$set": {"status": "completed"}})
+            await websocket.send_json({"type": "interview_complete", "text": closing_msg, "audio_base64": audio_b64})
+            processor.stop()
+            return
+
+        # Next Question Logic
+        next_q_id = evaluation.get("next_question_id", "follow_up")
+        if next_q_id == "follow_up":
+            actual_id = f"dyn_followup_{len(current_asked_ids)}"
+            ideal_rubric = []
+        else:
+            actual_id = next_q_id
+            orig = next((q for q in pool if q.get("id") == next_q_id), None)
+            ideal_rubric = orig.get("ideal_answer_rubric", []) if orig else []
+
+        current_question = {
+            "id": actual_id,
+            "question_text": evaluation.get("next_question_text"),
+            "ideal_answer_rubric": ideal_rubric
+        }
+
+        interviews_collection.update_one(
+            {"sessionId": session_id},
+            {"$push": {"asked_question_ids": actual_id, "transcript": {"speaker": "interviewer", "text": current_question["question_text"]}}}
+        )
+
+        audio_b64 = synthesize_speech(current_question["question_text"])
+        await websocket.send_json({
+            "type": "ai_question",
+            "text": current_question["question_text"],
+            "audio_base64": audio_b64
+        })
+        
+        processor.reset_stream_connection()
+
+    # Initialize and Start Audio Processor
+    processor = StreamingAudioProcessor(session_id, loop, on_interim, process_final_answer)
+    processor.start()
+
+    # Send first question if starting fresh
+    if not asked_ids:
+        interviews_collection.update_one({"sessionId": session_id}, {"$push": {"asked_question_ids": current_question["id"]}})
+        audio_b64 = synthesize_speech(current_question["question_text"])
+        await websocket.send_json({"type": "ai_question", "text": current_question["question_text"], "audio_base64": audio_b64})
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            
+            if data["type"] == "audio_chunk":
+                chunk = base64.b64decode(data["audio"])
+                processor.add_audio(chunk)
+                
+            elif data["type"] == "start_recording":
+                processor.unmute()
+                
+            elif data["type"] == "stop_recording":
+                processor.mute()
+                threading.Thread(target=processor._check_silence, daemon=True).start()
+                
+    except WebSocketDisconnect:
+        processor.stop()
+        del active_connections[session_id]
+
+# ==========================================
+# 4. TEST UI ROUTE (HTML)
+# ==========================================
+@app.get("/test-interview/{session_id}")
+async def get_test_ui(session_id: str):
+    """Serves the frontend testing UI from the index.html file."""
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), "index.html") 
+        with open(file_path, "r", encoding="utf-8") as file:
+            html_content = file.read()
+            
+        html_content = html_content.replace("SESSION_ID_PLACEHOLDER", session_id)
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="index.html file not found.")

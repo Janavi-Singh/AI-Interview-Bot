@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+mistralai
+pymongo
+python-multipart
+PyMuPDF
+python-docx
+python-dotenv
+websockets
+google-cloud-texttospeech
+google-cloud-speech
