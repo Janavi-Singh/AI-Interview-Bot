@@ -1,20 +1,19 @@
 import os
 import base64
 from google.cloud import texttospeech
-from google.api_core.client_options import ClientOptions
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize Google Cloud TTS Client using API Key
 try:
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if api_key:
-        client_options = ClientOptions(api_key=api_key)
-        tts_client = texttospeech.TextToSpeechClient(client_options=client_options)
-        print("[TTS] Google Cloud TTS Authenticated via API Key.")
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    
+    # Authenticate securely using the same Service Account JSON as the STT Engine
+    if project_id and os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        tts_client = texttospeech.TextToSpeechClient()
+        print("[TTS] Google Cloud TTS Initialized securely via Service Account.")
     else:
-        print("Warning: GOOGLE_API_KEY not found in .env file.")
+        print("Warning: GOOGLE_CLOUD_PROJECT or GOOGLE_APPLICATION_CREDENTIALS missing.")
         tts_client = None
 except Exception as e:
     print(f"Warning: Google Cloud TTS not initialized. {e}")
@@ -27,10 +26,13 @@ def synthesize_speech(text: str) -> str:
         
     try:
         synthesis_input = texttospeech.SynthesisInput(text=text)
+        
+        # Uses standard Neural2 voice to ensure compatibility
         voice = texttospeech.VoiceSelectionParams(
             language_code="en-IN",
-            name="en-IN-Chirp3-HD-Erinome" # Your preferred voice
+            name="en-IN-Neural2-A" 
         )
+        
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.LINEAR16,
             speaking_rate=1.0
@@ -44,5 +46,5 @@ def synthesize_speech(text: str) -> str:
         
         return base64.b64encode(response.audio_content).decode("utf-8")
     except Exception as e:
-        print(f"[TTS ERROR] {e}")
+        print(f"\n[🚨 TTS ERROR] {e}\n")
         return ""
