@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from parsers import extract_text
-from ai_engine import parse_jd, parse_resume, generate_question_pool, evaluate_candidate_answer
+from ai_engine import parse_jd, parse_resume, generate_question_pool, evaluate_candidate_answer, generate_interview_report
 import json
 from database import jobs_collection, candidates_collection, interviews_collection
 from audio_utils import synthesize_speech
@@ -75,7 +75,6 @@ async def prepare_interview_session(
         interview_link = f"http://localhost:8000/test-interview/{session_id}"
         print(f"✅ INTERVIEW PREPARED: {session_id}")
 
-        # Return the parsed data and questions to the frontend
         return {
             "status": "success",
             "message": "JD, Resume, and Question Pool parsed and stored successfully.",
@@ -92,38 +91,104 @@ async def prepare_interview_session(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 2. GET INTERVIEW SESSION DETAILS (HTTP GET)
+# 2. GET INTERVIEW SESSION DETAILS & REPORT
 # ==========================================
 @app.get("/api/interview-session/{session_id}")
 async def get_interview_session(session_id: str):
-    """
-    Fetches the current state, transcript, and scores of an interview session.
-    Perfect for the recruiter dashboard to view results.
-    """
     try:
         doc = interviews_collection.find_one({"sessionId": session_id})
-        
         if not doc:
-            raise HTTPException(status_code=404, detail="Interview session not found.")
-            
-        # Remove MongoDB's internal _id field as it is not JSON serializable
-        doc.pop('_id', None)
+            raise HTTPException(status_code=404, detail=f"Interview session '{session_id}' not found.")
         
-        return {
-            "status": "success",
-            "data": doc
-        }
+        doc.pop('_id', None)
+        doc["interview_link"] = f"http://localhost:8000/test-interview/{session_id}"
+
+        if doc.get("status") == "completed" and "final_report" not in doc:
+            print(f"[API] Generating comprehensive final report for session {session_id}...")
+            
+            job_doc = jobs_collection.find_one({"_id": doc.get("job_id")})
+            jd_context = job_doc.get("jdContent", {}) if job_doc else {}
+            
+            candidate_doc = candidates_collection.find_one({"_id": doc.get("candidate_id")})
+            candidate_profile = candidate_doc.get("profile", {}) if candidate_doc else {}
+            
+            raw_transcript = doc.get("transcript", [])
+            answers_data = doc.get("answers", [])
+            
+            qa_pairs = []
+            scores = []
+            
+            current_q = None
+            answer_index = 0
+            
+            # Step through the raw transcript to get the exact spoken conversation
+            for entry in raw_transcript:
+                if entry.get("speaker") == "interviewer":
+                    current_q = entry.get("text")
+                elif entry.get("speaker") == "candidate" and current_q:
+                    ans_text = entry.get("text")
+                    
+                    score = 0
+                    q_origin = "Pre-planned" # Default assumption
+                    
+                    # Match with the answers array to get the score and the ID
+                    if answer_index < len(answers_data):
+                        score = answers_data[answer_index].get("score", 0)
+                        q_id = str(answers_data[answer_index].get("question_id", ""))
+                        
+                        # If the ID starts with 'dyn_', we know it was generated on the fly!
+                        if q_id.startswith("dyn_"):
+                            q_origin = "Dynamic Follow-up"
+                            
+                        answer_index += 1
+                        
+                    scores.append(score)
+                    qa_pairs.append({
+                        "question": current_q,
+                        "answer": ans_text,
+                        "score": score,
+                        "origin": q_origin # Added the new origin flag!
+                    })
+                    
+                    current_q = None 
+                
+            avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+            
+            # Send the tagged Q&A to Mistral for analysis
+            ai_analysis = generate_interview_report(jd_context, candidate_profile, qa_pairs, avg_score)
+            
+            final_report = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "interviewer": "Tara (Senior Technical Interviewer)",
+                "interview_statistics": {
+                    "total_questions": len(qa_pairs),
+                    "overall_score": avg_score
+                },
+                "ai_analysis": ai_analysis,
+                "detailed_qa": qa_pairs # This now contains the exact text and the origin flags
+            }
+            
+            interviews_collection.update_one(
+                {"sessionId": session_id},
+                {"$set": {"final_report": final_report}}
+            )
+            
+            doc["final_report"] = final_report
+
+        return {"status": "success", "data": doc}
+        
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[API ERROR] Failed to fetch session: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ==========================================
 # 3. LIVE INTERVIEW ROUTE (WEBSOCKET)
 # ==========================================
-
 active_connections = {}
-MAX_QUESTIONS = 12
+MAX_QUESTIONS = 10
 
 @app.websocket("/ws/interview/{session_id}")
 async def interview_websocket(websocket: WebSocket, session_id: str):
@@ -140,16 +205,21 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
     pool = interview_doc.get("generatedQuestions", [])
     asked_ids = interview_doc.get("asked_question_ids", [])
     current_question = pool[0] if not asked_ids else next((q for q in pool if q.get("id") == asked_ids[-1]), pool[0])
+    
+    processor = None
 
-    # Async Callbacks for STT Thread
     async def on_interim(text: str):
         await websocket.send_json({"type": "interim_transcript", "text": text})
 
     async def process_final_answer(user_answer: str):
         nonlocal current_question
         
-        processor.mute() # Stop listening while AI thinks
-        await websocket.send_json({"type": "transcript_success", "text": user_answer})
+        if not user_answer:
+            await websocket.send_json({"type": "info", "message": "I didn't hear anything clearly. Could you try answering again?"})
+            return
+            
+        print(f"\n[Final Locked Transcript]: {user_answer}\n")
+        await websocket.send_json({"type": "transcript_success", "text": "Answer logged securely. Evaluating..."})
 
         current_doc = interviews_collection.find_one({"sessionId": session_id})
         current_asked_ids = current_doc.get("asked_question_ids", [])
@@ -159,11 +229,13 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
         raw_transcript = current_doc.get("transcript", [])
         recent_context = "\n".join([f"{msg['speaker'].upper()}: {msg['text']}" for msg in raw_transcript[-4:]])
 
-        # Evaluate Answer
-        evaluation = evaluate_candidate_answer(current_question, user_answer, available_questions, recent_context)
+        evaluation = await asyncio.to_thread(
+            evaluate_candidate_answer, current_question, user_answer, available_questions, recent_context
+        )
         score_val = int(evaluation.get("score", 5))
 
-        interviews_collection.update_one(
+        await asyncio.to_thread(
+            interviews_collection.update_one,
             {"sessionId": session_id},
             {"$push": {
                 "answers": {"question_id": current_question.get("id"), "text": user_answer, "score": score_val},
@@ -173,13 +245,11 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
 
         if len(current_asked_ids) >= MAX_QUESTIONS or not available_questions:
             closing_msg = "Thank you for your time. Your answers were insightful. Have a great day!"
-            audio_b64 = synthesize_speech(closing_msg)
-            interviews_collection.update_one({"sessionId": session_id}, {"$set": {"status": "completed"}})
+            audio_b64 = await asyncio.to_thread(synthesize_speech, closing_msg)
+            await asyncio.to_thread(interviews_collection.update_one, {"sessionId": session_id}, {"$set": {"status": "completed"}})
             await websocket.send_json({"type": "interview_complete", "text": closing_msg, "audio_base64": audio_b64})
-            processor.stop()
             return
 
-        # Next Question Logic
         next_q_id = evaluation.get("next_question_id", "follow_up")
         if next_q_id == "follow_up":
             actual_id = f"dyn_followup_{len(current_asked_ids)}"
@@ -195,60 +265,72 @@ async def interview_websocket(websocket: WebSocket, session_id: str):
             "ideal_answer_rubric": ideal_rubric
         }
 
-        interviews_collection.update_one(
+        await asyncio.to_thread(
+            interviews_collection.update_one,
             {"sessionId": session_id},
             {"$push": {"asked_question_ids": actual_id, "transcript": {"speaker": "interviewer", "text": current_question["question_text"]}}}
         )
 
-        audio_b64 = synthesize_speech(current_question["question_text"])
+        audio_b64 = await asyncio.to_thread(synthesize_speech, current_question["question_text"])
         await websocket.send_json({
             "type": "ai_question",
             "text": current_question["question_text"],
             "audio_base64": audio_b64
         })
-        
-        processor.reset_stream_connection()
 
-    # Initialize and Start Audio Processor
-    processor = StreamingAudioProcessor(session_id, loop, on_interim, process_final_answer)
-    processor.start()
-
-    # Send first question if starting fresh
+    # Boot up the very first question if starting fresh
     if not asked_ids:
-        interviews_collection.update_one({"sessionId": session_id}, {"$push": {"asked_question_ids": current_question["id"]}})
-        audio_b64 = synthesize_speech(current_question["question_text"])
+        await asyncio.to_thread(
+            interviews_collection.update_one, 
+            {"sessionId": session_id}, 
+            {
+                "$push": {
+                    "asked_question_ids": current_question["id"],
+                    # WE MUST ADD THE FIRST QUESTION TO THE TRANSCRIPT LOG!
+                    "transcript": {
+                        "speaker": "interviewer",
+                        "text": current_question["question_text"],
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                }
+            }
+        )
+        audio_b64 = await asyncio.to_thread(synthesize_speech, current_question["question_text"])
         await websocket.send_json({"type": "ai_question", "text": current_question["question_text"], "audio_base64": audio_b64})
-
+        
     try:
         while True:
             data = await websocket.receive_json()
             
-            if data["type"] == "audio_chunk":
-                chunk = base64.b64decode(data["audio"])
-                processor.add_audio(chunk)
+            if data["type"] == "start_recording":
+                if processor: processor.stop_and_submit() 
+                processor = StreamingAudioProcessor(session_id, loop, on_interim, process_final_answer)
+                processor.start()
                 
-            elif data["type"] == "start_recording":
-                processor.unmute()
+            elif data["type"] == "audio_chunk":
+                if processor:
+                    chunk = base64.b64decode(data["audio"])
+                    processor.add_audio(chunk)
                 
             elif data["type"] == "stop_recording":
-                processor.mute()
-                threading.Thread(target=processor._check_silence, daemon=True).start()
+                if processor:
+                    processor.stop_and_submit()
+                    processor = None
                 
     except WebSocketDisconnect:
-        processor.stop()
-        del active_connections[session_id]
+        if processor: processor.stop_and_submit()
+        if session_id in active_connections:
+            del active_connections[session_id]
 
 # ==========================================
-# 4. TEST UI ROUTE (HTML)
+# 4. TEST UI ROUTE (HTML FRONTEND)
 # ==========================================
 @app.get("/test-interview/{session_id}")
 async def get_test_ui(session_id: str):
-    """Serves the frontend testing UI from the index.html file."""
     try:
         file_path = os.path.join(os.path.dirname(__file__), "index.html") 
         with open(file_path, "r", encoding="utf-8") as file:
             html_content = file.read()
-            
         html_content = html_content.replace("SESSION_ID_PLACEHOLDER", session_id)
         return HTMLResponse(content=html_content)
     except FileNotFoundError:
