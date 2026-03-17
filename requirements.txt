@@ -1,11 +1,3 @@
-fastapi
-uvicorn
-pymongo
-python-multipart
-PyMuPDF
-python-docx
-python-dotenv
-websockets
-google-cloud-texttospeech
-google-cloud-speech
-google-genai
+flask==3.0.0
+pymongo==4.6.1
+python-dotenv==1.0.0
