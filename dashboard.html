@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interview Bot — Employer Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        /* Header */
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 22px; }
+        .header span { font-size: 14px; opacity: 0.8; }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 20px;
+            padding: 25px 30px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 25px;
+            flex: 1;
+            min-width: 150px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-card .label {
+            font-size: 13px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .stat-card.blue .number   { color: #3498db; }
+        .stat-card.green .number  { color: #27ae60; }
+        .stat-card.orange .number { color: #e67e22; }
+        .stat-card.red .number    { color: #e74c3c; }
+
+        /* Table */
+        .table-section {
+            padding: 0 30px 30px;
+        }
+        .table-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .table-wrapper {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead {
+            background: #2c3e50;
+            color: white;
+        }
+        thead th {
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        tbody tr {
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        tbody tr:hover { background: #f8f9fa; }
+        tbody td {
+            padding: 13px 16px;
+            font-size: 14px;
+        }
+
+        /* Status badges */
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge.pending    { background: #fff3cd; color: #856404; }
+        .badge.sent       { background: #d1ecf1; color: #0c5460; }
+        .badge.completed  { background: #d4edda; color: #155724; }
+        .badge.expired    { background: #f8d7da; color: #721c24; }
+        .badge.active     { background: #d4edda; color: #155724; }
+
+        /* Filter bar */
+        .filter-bar {
+            padding: 0 30px 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-bar input {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 250px;
+        }
+        .filter-bar select {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .btn-refresh {
+            padding: 8px 18px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-refresh:hover { background: #2980b9; }
+
+        /* Empty state */
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+        }
+
+        /* Expiry warning */
+        .expiry-warning { color: #e74c3c; font-size: 12px; }
+        .expiry-ok      { color: #27ae60; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <h1>🤖 AI Interview Bot — Employer Dashboard</h1>
+        <span id="current-time"></span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat-card blue">
+            <div class="number" id="total-count">0</div>
+            <div class="label">Total Candidates</div>
+        </div>
+        <div class="stat-card green">
+            <div class="number" id="sent-count">0</div>
+            <div class="label">Emails Sent</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="number" id="pending-count">0</div>
+            <div class="label">Pending</div>
+        </div>
+        <div class="stat-card green">
+            <div class="number" id="completed-count">0</div>
+            <div class="label">Completed</div>
+        </div>
+        <div class="stat-card red">
+            <div class="number" id="expired-count">0</div>
+            <div class="label">Expired</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <input type="text" id="search-input" placeholder="🔍 Search candidate name or email..." oninput="filterTable()">
+        <select id="status-filter" onchange="filterTable()">
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="sent">Email Sent</option>
+            <option value="completed">Completed</option>
+            <option value="expired">Expired</option>
+        </select>
+        <button class="btn-refresh" onclick="loadData()">🔄 Refresh</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-section">
+        <h2>📋 Candidate Interview Status</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Candidate Name</th>
+                        <th>Email</th>
+                        <th>Email Status</th>
+                        <th>Interview Status</th>
+                        <th>Link Expiry</th>
+                        <th>Sent At</th>
+                    </tr>
+                </thead>
+                <tbody id="candidates-table">
+                    <tr>
+                        <td colspan="7" class="empty">Loading candidates...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // ── Update clock ──────────────────────────
+        function updateClock() {
+            document.getElementById("current-time").textContent =
+                new Date().toLocaleString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ── Load data from API ────────────────────
+        async function loadData() {
+            try {
+                const resp = await fetch("/api/dashboard");
+                const data = await resp.json();
+                renderTable(data.interviews);
+                updateStats(data.interviews);
+            } catch (e) {
+                // Show sample data if API not connected
+                renderSampleData();
+            }
+        }
+
+        // ── Update stats ──────────────────────────
+        function updateStats(interviews) {
+            document.getElementById("total-count").textContent     = interviews.length;
+            document.getElementById("sent-count").textContent      = interviews.filter(i => i.email_sent).length;
+            document.getElementById("pending-count").textContent   = interviews.filter(i => i.status === "pending").length;
+            document.getElementById("completed-count").textContent = interviews.filter(i => i.status === "completed").length;
+            document.getElementById("expired-count").textContent   = interviews.filter(i => i.status === "expired").length;
+        }
+
+        // ── Render table ──────────────────────────
+        function renderTable(interviews) {
+            const tbody = document.getElementById("candidates-table");
+
+            if (!interviews || interviews.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="empty">No candidates found</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = interviews.map((item, index) => {
+                const emailBadge    = item.email_sent
+                    ? `<span class="badge sent">✅ Sent</span>`
+                    : `<span class="badge pending">⏳ Pending</span>`;
+
+                const statusBadge   =
+                    item.status === "completed" ? `<span class="badge completed">✅ Completed</span>` :
+                    item.status === "expired"   ? `<span class="badge expired">❌ Expired</span>`    :
+                    item.status === "pending"   ? `<span class="badge pending">⏳ Pending</span>`    :
+                    `<span class="badge active">🟢 Active</span>`;
+
+                const expiryTime    = new Date(item.expires_at);
+                const now           = new Date();
+                const hoursLeft     = Math.round((expiryTime - now) / 3600000);
+                const expiryDisplay = item.status === "expired"
+                    ? `<span class="expiry-warning">Expired</span>`
+                    : hoursLeft > 0
+                        ? `<span class="expiry-ok">${hoursLeft}hrs left</span>`
+                        : `<span class="expiry-warning">Expired</span>`;
+
+                const sentAt = item.email_sent_at
+                    ? new Date(item.email_sent_at).toLocaleString()
+                    : "—";
+
+                return `
+                    <tr data-name="${item.candidate_name.toLowerCase()}"
+                        data-email="${item.candidate_email.toLowerCase()}"
+                        data-status="${item.status}">
+                        <td>${index + 1}</td>
+                        <td><strong>${item.candidate_name}</strong></td>
+                        <td>${item.candidate_email}</td>
+                        <td>${emailBadge}</td>
+                        <td>${statusBadge}</td>
+                        <td>${expiryDisplay}</td>
+                        <td>${sentAt}</td>
+                    </tr>`;
+            }).join("");
+        }
+
+        // ── Filter table ──────────────────────────
+        function filterTable() {
+            const search = document.getElementById("search-input").value.toLowerCase();
+            const status = document.getElementById("status-filter").value;
+            const rows   = document.querySelectorAll("#candidates-table tr");
+
+            rows.forEach(row => {
+                const name      = row.dataset.name  || "";
+                const email     = row.dataset.email || "";
+                const rowStatus = row.dataset.status || "";
+
+                const matchSearch = name.includes(search) || email.includes(search);
+                const matchStatus = status === "all" || rowStatus === status;
+
+                row.style.display = matchSearch && matchStatus ? "" : "none";
+            });
+        }
+
+        // ── Sample data for testing ───────────────
+        function renderSampleData() {
+            const sample = [
+                {
+                    candidate_name  : "Rahul Sharma",
+                    candidate_email : "rahul@example.com",
+                    email_sent      : true,
+                    status          : "pending",
+                    expires_at      : new Date(Date.now() + 48 * 3600000),
+                    email_sent_at   : new Date(),
+                },
+                {
+                    candidate_name  : "Priya Patel",
+                    candidate_email : "priya@example.com",
+                    email_sent      : true,
+                    status          : "completed",
+                    expires_at      : new Date(Date.now() + 24 * 3600000),
+                    email_sent_at   : new Date(),
+                },
+                {
+                    candidate_name  : "Amit Kumar",
+                    candidate_email : "amit@example.com",
+                    email_sent      : false,
+                    status          : "pending",
+                    expires_at      : new Date(Date.now() + 72 * 3600000),
+                    email_sent_at   : null,
+                },
+                {
+                    candidate_name  : "Sneha Reddy",
+                    candidate_email : "sneha@example.com",
+                    email_sent      : true,
+                    status          : "expired",
+                    expires_at      : new Date(Date.now() - 5 * 3600000),
+                    email_sent_at   : new Date(),
+                },
+            ];
+            renderTable(sample);
+            updateStats(sample);
+        }
+
+        // Load on page start
+        loadData();
+
+        // Auto refresh every 60 seconds
+        setInterval(loadData, 60000);
+    </script>
+
+</body>
+</html>
