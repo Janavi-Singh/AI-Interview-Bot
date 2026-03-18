@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect,BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from parsers import extract_text
 from ai_engine import parse_jd, parse_resume, generate_question_pool, evaluate_candidate_answer, generate_interview_report
@@ -12,7 +12,7 @@ import base64
 import os
 import threading
 from fastapi.responses import HTMLResponse
-
+from email_automation import send_interview_email
 app = FastAPI(title="AI Interview Backend")
 
 app.add_middleware(
@@ -23,11 +23,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================================
-# 1. PREPARE INTERVIEW ROUTE (HTTP POST)
-# ==========================================
 @app.post("/prepare-interview/")
 async def prepare_interview_session(
+    background_tasks: BackgroundTasks,
     js_id: str = Form(...),
     contest_id: str = Form(...),
     recruiter_id: str = Form(...),
@@ -56,6 +54,7 @@ async def prepare_interview_session(
 
         generated_questions = generate_question_pool(parsed_jd, parsed_resume)
         session_id = f"{js_id}_{contest_id}"
+        interview_link = f"http://localhost:8000/test-interview/{session_id}"
 
         interviews_collection.update_one(
             {"sessionId": session_id},
@@ -67,29 +66,46 @@ async def prepare_interview_session(
                 "transcript": [], 
                 "answers": [], 
                 "scores": [], 
-                "status": "pending"
+                "status": "pending",
+                "email_sent": False # Track email status
             }}, 
             upsert=True
         )
 
-        interview_link = f"http://localhost:8000/test-interview/{session_id}"
         print(f"✅ INTERVIEW PREPARED: {session_id}")
+
+        # --- NEW: TRIGGER BACKGROUND EMAIL ---
+        # Safely extract name and email from Gemini's parsed JSON
+        profile = parsed_resume.get("candidate_profile", {})
+        candidate_name = profile.get("name", "Candidate")
+        candidate_email = profile.get("email", "")
+
+        # Basic validation to ensure an email was found before sending
+        if candidate_email and "@" in candidate_email:
+            background_tasks.add_task(
+                send_interview_email,
+                candidate_name=candidate_name,
+                candidate_email=candidate_email,
+                interview_link=interview_link,
+                session_id=session_id,
+                db_collection=interviews_collection
+            )
+        else:
+            print(f"[Warning] No valid email found in resume for {candidate_name}. Invitation not sent.")
 
         return {
             "status": "success",
-            "message": "JD, Resume, and Question Pool parsed and stored successfully.",
+            "message": "JD, Resume, and Question Pool parsed successfully. Invitation email is being sent.",
             "data": {
                 "session_id": session_id,
                 "interview_link": interview_link,
-                "parsed_jd": parsed_jd,
-                "parsed_resume": parsed_resume,
-                "total_questions_generated": len(generated_questions),
-                "generated_questions": generated_questions
+                "candidate_email": candidate_email,
+                "total_questions_generated": len(generated_questions)
             }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 # ==========================================
 # 2. GET INTERVIEW SESSION DETAILS & REPORT
 # ==========================================
