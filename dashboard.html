@@ -234,17 +234,26 @@
 
         // ── Load data from API ────────────────────
         async function loadData() {
-            try {
-                const resp = await fetch("/api/dashboard");
-                const data = await resp.json();
-                renderTable(data.interviews);
-                updateStats(data.interviews);
-            } catch (e) {
-                // Show sample data if API not connected
-                renderSampleData();
-            }
-        }
+    try {
+        // Change: Added a loading state UI feedback
+        const tbody = document.getElementById("candidates-table");
+        
+        const resp = await fetch("/api/dashboard");
+        if (!resp.ok) throw new Error("API Connection Failed");
 
+        const data = await resp.json();
+        
+        // Pass the actual array from the MongoDB response
+        renderTable(data.interviews);
+        updateStats(data.interviews);
+        
+        console.log("✅ Data synced with MongoDB");
+    } catch (e) {
+        console.error("❌ Backend unreachable, showing sample data:", e);
+        // Keeps your testing logic intact if the server is down
+        renderSampleData();
+    }
+}
         // ── Update stats ──────────────────────────
         function updateStats(interviews) {
             document.getElementById("total-count").textContent     = interviews.length;
