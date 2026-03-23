@@ -47,16 +47,9 @@
             background: #fff;
         }
 
-        .header h2 {
-            margin: 0;
-            font-size: 1.25rem;
-            color: var(--text-main);
-        }
+        .header h2 { margin: 0; font-size: 1.25rem; color: var(--text-main); }
 
-        .content {
-            padding: 40px;
-            min-height: 200px;
-        }
+        .content { padding: 40px; min-height: 200px; }
 
         .controls {
             padding: 30px;
@@ -66,26 +59,16 @@
             align-items: center;
         }
 
-        .btn-record {
+        .record-indicator {
             background: var(--primary);
             color: white;
-            border: none;
             padding: 15px 30px;
             border-radius: 50px;
-            cursor: pointer;
             font-size: 1.1rem;
             font-weight: bold;
             margin-bottom: 20px;
-            transition: 0.2s;
-        }
-
-        .btn-record:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-        }
-
-        .btn-stop {
-            background: var(--danger);
+            transition: 0.3s;
+            display: inline-block;
         }
 
         .status-box {
@@ -101,210 +84,71 @@
             font-weight: 500;
         }
 
-        /* --- FINAL REPORT UI STYLES --- */
-        #report-container {
-            display: none;
-            text-align: left;
-            padding: 0;
-            background: #f8fafc;
-        }
-
-        .report-header {
+        /* Start Screen Button */
+        .btn-start {
             background: var(--primary);
             color: white;
-            padding: 40px 30px;
-            text-align: center;
-        }
-
-        .report-header h1 {
-            margin: 0 0 15px 0;
-            font-size: 2.2rem;
-        }
-
-        .score-badge {
-            display: inline-block;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 30px;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1.1rem;
             font-weight: bold;
-            font-size: 1.4rem;
-            backdrop-filter: blur(5px);
+            transition: 0.2s;
         }
-
-        .report-body {
-            padding: 30px;
-        }
-
-        .section-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            margin-bottom: 25px;
-            border: 1px solid #f1f5f9;
-        }
-
-        .section-title {
-            font-size: 1.2rem;
+        .q-counter {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
             font-weight: 700;
-            color: var(--text-main);
-            border-bottom: 2px solid #f1f5f9;
-            padding-bottom: 10px;
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-
-        .section-text {
-            line-height: 1.6;
-            color: #4b5563;
-            margin: 0;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-
-        @media (max-width: 700px) {
-
-            .grid-2,
-            .grid-3 {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .strengths-list,
-        .weakness-list {
-            padding-left: 20px;
-            margin: 0;
-        }
-
-        .strengths-list li {
-            color: var(--success);
-            margin-bottom: 10px;
-        }
-
-        .weakness-list li {
-            color: var(--danger);
-            margin-bottom: 10px;
-        }
-
-        .list-item-text {
-            color: #4b5563;
-        }
-
-        /* Tech Assessment Progress Bars */
-        .tech-score-item {
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .tech-score-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text-main);
-            font-size: 0.95rem;
-        }
-
-        .tech-score-val {
-            color: var(--primary);
-        }
-
-        .progress-bar-bg {
-            width: 100%;
-            background: #e5e7eb;
-            border-radius: 4px;
-            height: 8px;
-            overflow: hidden;
-        }
-
-        .progress-bar-fill {
-            background: var(--primary);
-            height: 100%;
-            border-radius: 4px;
-            transition: width 1s ease-in-out;
-        }
-
-        /* Q&A Log */
-        .qa-item {
-            border-left: 4px solid var(--primary);
-            margin-bottom: 20px;
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .q-text {
-            font-weight: 600;
-            color: #111827;
-            margin-bottom: 10px;
-            line-height: 1.4;
-        }
-
-        .a-text {
-            color: #4b5563;
-            font-style: italic;
             margin-bottom: 15px;
-            line-height: 1.5;
-            padding-left: 10px;
-            border-left: 2px solid #d1d5db;
-        }
-
-        .qa-score {
             display: inline-block;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: white;
-            background: var(--primary);
-            padding: 4px 10px;
-            border-radius: 12px;
-        }
-
-        /* Recommendation Colors */
-        .rec-hire {
-            color: #86efac;
-            font-size: 1.2rem;
-            margin-top: 15px;
-        }
-
-        .rec-nohire {
-            color: #fca5a5;
-            font-size: 1.2rem;
-            margin-top: 15px;
-        }
-
-        .rec-maybe {
-            color: #fde047;
-            font-size: 1.2rem;
-            margin-top: 15px;
-        }
-
-        .info-pill {
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            padding: 15px;
-            border-radius: 8px;
-        }
-
-        .info-pill-title {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #1e3a8a;
             text-transform: uppercase;
-            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+            display: none; /* Hidden until AI sends the numbers */
         }
+        .btn-start:hover { background: #1d4ed8; }
+
+        /* Animation for Listening state */
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .pulse { animation: pulse-green 1.5s infinite; background: var(--success); }
+
+        /* --- FINAL REPORT UI STYLES --- */
+        #report-container { display: none; text-align: left; padding: 0; background: #f8fafc; }
+        .report-header { background: var(--primary); color: white; padding: 40px 30px; text-align: center; }
+        .report-header h1 { margin: 0 0 15px 0; font-size: 2.2rem; }
+        .score-badge { display: inline-block; padding: 10px 20px; background: rgba(255, 255, 255, 0.2); border-radius: 30px; font-weight: bold; font-size: 1.4rem; backdrop-filter: blur(5px); }
+        .report-body { padding: 30px; }
+        .section-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); margin-bottom: 25px; border: 1px solid #f1f5f9; }
+        .section-title { font-size: 1.2rem; font-weight: 700; color: var(--text-main); border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 0; margin-bottom: 20px; }
+        .section-text { line-height: 1.6; color: #4b5563; margin: 0; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+        @media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+        .strengths-list, .weakness-list { padding-left: 20px; margin: 0; }
+        .strengths-list li { color: var(--success); margin-bottom: 10px; }
+        .weakness-list li { color: var(--danger); margin-bottom: 10px; }
+        .list-item-text { color: #4b5563; }
+        .tech-score-item { background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .tech-score-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
+        .tech-score-val { color: var(--primary); }
+        .progress-bar-bg { width: 100%; background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden; }
+        .progress-bar-fill { background: var(--primary); height: 100%; border-radius: 4px; transition: width 1s ease-in-out; }
+        .qa-item { border-left: 4px solid var(--primary); margin-bottom: 20px; background: #f9fafb; padding: 20px; border-radius: 0 8px 8px 0; }
+        .q-text { font-weight: 600; color: #111827; margin-bottom: 10px; line-height: 1.4; }
+        .a-text { color: #4b5563; font-style: italic; margin-bottom: 15px; line-height: 1.5; padding-left: 10px; border-left: 2px solid #d1d5db; }
+        .qa-score { display: inline-block; font-size: 0.85rem; font-weight: 700; color: white; background: var(--primary); padding: 4px 10px; border-radius: 12px; }
+        .rec-hire { color: #86efac; font-size: 1.2rem; margin-top: 15px; }
+        .rec-nohire { color: #fca5a5; font-size: 1.2rem; margin-top: 15px; }
+        .rec-maybe { color: #fde047; font-size: 1.2rem; margin-top: 15px; }
+        .info-pill { background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; }
+        .info-pill-title { font-size: 0.85rem; font-weight: 700; color: #1e3a8a; text-transform: uppercase; margin-bottom: 5px; }
     </style>
 </head>
 
@@ -313,7 +157,8 @@
     <div class="container">
         <div id="start-screen" style="padding: 60px;">
             <h2>Welcome to your AI Interview</h2>
-            <button class="btn-record" onclick="initializePermissions()">Grant Permissions & Start</button>
+            <p style="color: #4b5563; margin-bottom: 30px;">This interview is fully automated. The AI will speak, and your microphone will open automatically so you can reply naturally.</p>
+            <button class="btn-start" onclick="initializePermissions()">Grant Permissions & Start</button>
         </div>
 
         <div id="interview-room" style="display: none;">
@@ -325,12 +170,18 @@
                 <p id="ai-message" style="font-size: 1.5rem; font-weight: 500;">Connecting to Tara...</p>
             </div>
             <div class="controls">
-                <button id="record-btn" class="btn-record" disabled onclick="toggleRecording()">
-                    <span id="btn-text">Waiting for AI...</span>
-                </button>
+                <div id="record-indicator" class="record-indicator">
+                    Waiting for AI...
+                </div>
                 <div id="status-box" class="status-box">Setting up session...</div>
             </div>
+            <div class="content">
+            <div id="q-counter" class="q-counter">Question 1 of 10</div>
+            
+            <p id="ai-message" style="font-size: 1.5rem; font-weight: 500;">Connecting to Tara...</p>
+            </div>
         </div>
+        
 
         <div id="report-container">
             <div class="report-header">
@@ -338,13 +189,11 @@
                 <div class="score-badge" id="rep-score">Score: --/10</div>
                 <div id="rep-rec">Recommendation: Pending</div>
             </div>
-
             <div class="report-body">
                 <div class="section-card">
                     <h3 class="section-title">Executive Summary</h3>
                     <p id="rep-summary" class="section-text"></p>
                 </div>
-
                 <div class="grid-3">
                     <div class="info-pill">
                         <div class="info-pill-title">Resume Alignment</div>
@@ -359,7 +208,6 @@
                         <div id="rep-next-steps" class="section-text" style="font-size: 0.95rem;"></div>
                     </div>
                 </div>
-
                 <div class="grid-2">
                     <div class="section-card">
                         <h3 class="section-title">Key Strengths</h3>
@@ -370,21 +218,16 @@
                         <ul class="weakness-list" id="rep-weaknesses"></ul>
                     </div>
                 </div>
-
                 <div class="section-card">
                     <h3 class="section-title">Technical Assessment</h3>
-                    <div class="grid-2" id="rep-tech-scores">
-                    </div>
+                    <div class="grid-2" id="rep-tech-scores"></div>
                 </div>
-
                 <div class="section-card">
                     <h3 class="section-title">Detailed Q&A Transcript</h3>
-                    <div id="rep-qa-list">
-                    </div>
+                    <div id="rep-qa-list"></div>
                 </div>
             </div>
         </div>
-
     </div>
 
     <audio id="audio-player" autoplay></audio>
@@ -400,17 +243,22 @@
         let mediaRecorder = null;
         let globalStream = null;
 
+        // Web Audio API Variables for Silence Detection
+        let audioContext;
+        let analyser;
+        let silenceDetectorId;
+
         const startScreen = document.getElementById("start-screen");
         const interviewRoom = document.getElementById("interview-room");
         const reportContainer = document.getElementById("report-container");
 
         const aiMessage = document.getElementById("ai-message");
-        const recordBtn = document.getElementById("record-btn");
-        const btnText = document.getElementById("btn-text");
+        const recordIndicator = document.getElementById("record-indicator");
         const audioPlayer = document.getElementById("audio-player");
         const statusBox = document.getElementById("status-box");
 
         function initializePermissions() {
+            // Play a blank audio file to unlock browser autoplay restrictions
             audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
             audioPlayer.play().catch(e => console.log(e));
 
@@ -421,7 +269,7 @@
                 startScreen.style.display = "none";
                 interviewRoom.style.display = "block";
                 connectWebSocket();
-            }).catch(err => alert("Microphone access denied."));
+            }).catch(err => alert("Microphone access denied. Please allow microphone access to proceed."));
         }
 
         function connectWebSocket() {
@@ -432,20 +280,28 @@
 
                 if (data.type === "ai_question" || data.type === "interview_complete") {
                     aiMessage.innerText = data.text;
-                    recordBtn.disabled = true;
-                    btnText.innerText = "Listening to AI...";
-                    statusBox.innerText = "Waiting for your turn...";
+                    // --- NEW: UPDATE QUESTION COUNTER ---
+                    if (data.current_q_num && data.total_q_num) {
+                        const qCounter = document.getElementById('q-counter');
+                        qCounter.innerText = `Question ${data.current_q_num} of ${data.total_q_num}`;
+                        qCounter.style.display = 'inline-block';
+                    }
+                    
+                    // Style UI while AI is speaking
+                    recordIndicator.innerText = "🤖 Tara is speaking...";
+                    recordIndicator.style.background = "#9ca3af"; // Gray
+                    recordIndicator.classList.remove("pulse");
+                    statusBox.innerText = "Listen to the question carefully.";
 
                     if (data.audio_base64) {
                         audioPlayer.src = "data:audio/mp3;base64," + data.audio_base64;
                         audioPlayer.onended = () => {
                             if (data.type !== "interview_complete") {
-                                recordBtn.disabled = false;
-                                btnText.innerText = "Start Speaking";
-                                statusBox.innerText = "Click 'Start Speaking' and begin answering.";
+                                // AI finished speaking -> AUTOMATICALLY START RECORDING
+                                startRecordingAuto();
                             } else {
                                 // INTERVIEW IS DONE - TRIGGER REPORT FETCH
-                                recordBtn.style.display = 'none';
+                                recordIndicator.style.display = 'none';
                                 statusBox.innerText = "Analyzing interview and generating AI report... Please wait.";
                                 statusBox.style.backgroundColor = "#dbeafe";
                                 fetchAndDisplayReport();
@@ -453,60 +309,119 @@
                         };
                     }
                 }
-                // Add this right below your `else if (data.type === "transcript_success") { ... }` block
+                else if (data.type === "transcript_success") {
+                    statusBox.innerText = "Answer captured successfully.";
+                }
                 else if (data.type === "info" || data.type === "error") {
                     statusBox.innerText = data.message;
-                    statusBox.style.backgroundColor = "#fee2e2"; // Light red warning
-
-                    // Unlock the button so the user can try speaking again
-                    recordBtn.disabled = false;
-                    recordBtn.classList.remove("btn-stop");
-                    btnText.innerText = "Start Speaking";
+                    statusBox.style.backgroundColor = "#fee2e2";
+                    // If backend failed to hear, restart auto-recording so they can try again
+                    setTimeout(() => {
+                        statusBox.style.backgroundColor = "#e5e7eb";
+                        startRecordingAuto();
+                    }, 2000);
                 }
             };
         }
 
-        function toggleRecording() {
-            if (!isRecording) {
-                mediaRecorder = new MediaRecorder(globalStream, { mimeType: 'audio/webm;codecs=opus' });
+        function startRecordingAuto() {
+            if (isRecording) return;
+            
+            mediaRecorder = new MediaRecorder(globalStream, { mimeType: 'audio/webm;codecs=opus' });
 
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-                        const reader = new FileReader();
-                        reader.readAsDataURL(e.data);
-                        reader.onloadend = () => {
-                            const base64Audio = reader.result.split(',')[1];
-                            ws.send(JSON.stringify({ type: "audio_chunk", audio: base64Audio }));
-                        };
-                    }
-                };
-
-                mediaRecorder.start(250);
-                ws.send(JSON.stringify({ type: "start_recording" }));
-                isRecording = true;
-                recordBtn.classList.add("btn-stop");
-                btnText.innerText = "Finish Answer";
-                statusBox.innerText = "Listening securely... (Live transcription hidden)";
-
-            } else {
-                isRecording = false;
-                if (mediaRecorder && mediaRecorder.state !== "inactive") {
-                    mediaRecorder.stop();
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(e.data);
+                    reader.onloadend = () => {
+                        const base64Audio = reader.result.split(',')[1];
+                        ws.send(JSON.stringify({ type: "audio_chunk", audio: base64Audio }));
+                    };
                 }
+            };
 
-                ws.send(JSON.stringify({ type: "stop_recording" }));
-                recordBtn.disabled = true;
-                recordBtn.classList.remove("btn-stop");
-                btnText.innerText = "Analyzing Audio...";
-                statusBox.innerText = "Processing your answer...";
+            mediaRecorder.start(250);
+            ws.send(JSON.stringify({ type: "start_recording" }));
+            isRecording = true;
+            
+            // Set initial UI for waiting for voice
+            recordIndicator.innerText = "🎙️ Mic open. Start speaking...";
+            recordIndicator.style.background = "#3b82f6"; // Blue
+            recordIndicator.classList.remove("pulse");
+            statusBox.innerText = "Waiting for you to speak...";
+
+            startSilenceDetection();
+        }
+
+        function stopRecordingAuto() {
+            if (!isRecording) return;
+            isRecording = false;
+
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
             }
+            if (silenceDetectorId) {
+                cancelAnimationFrame(silenceDetectorId);
+            }
+
+            ws.send(JSON.stringify({ type: "stop_recording" }));
+            
+            recordIndicator.innerText = "⚙️ Analyzing...";
+            recordIndicator.style.background = "#f59e0b"; // Orange/Yellow
+            recordIndicator.classList.remove("pulse");
+            statusBox.innerText = "Processing your answer...";
+        }
+
+        function startSilenceDetection() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                let microphone = audioContext.createMediaStreamSource(globalStream);
+                microphone.connect(analyser);
+            }
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            let hasSpoken = false;
+            let silenceStartTime = Date.now();
+
+            function checkAudioLevel() {
+                if (!isRecording) return;
+
+                analyser.getByteFrequencyData(dataArray);
+                let volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+                if (volume > 15) { 
+                    // Voice detected! User is speaking.
+                    if (!hasSpoken) {
+                        hasSpoken = true;
+                        recordIndicator.innerText = "🎤 Listening...";
+                        recordIndicator.classList.add("pulse");
+                    }
+                    silenceStartTime = Date.now(); // Reset silence timer
+                    statusBox.innerText = "Recording... (Will auto-submit when you stop speaking)";
+                } else {
+                    let silenceDuration = Date.now() - silenceStartTime;
+
+                    // Condition 1: They started speaking, but paused for 3 seconds -> Submit Answer
+                    if (hasSpoken && silenceDuration > 3000) {
+                        stopRecordingAuto();
+                        return;
+                    }
+                    
+                    // Condition 2: They never started speaking for 15 seconds -> Timeout & Submit empty
+                    if (!hasSpoken && silenceDuration > 15000) {
+                        stopRecordingAuto();
+                        return;
+                    }
+                }
+                silenceDetectorId = requestAnimationFrame(checkAudioLevel);
+            }
+            checkAudioLevel();
         }
 
         // --- FETCH AND RENDER REPORT FUNCTION ---
         async function fetchAndDisplayReport() {
             try {
-                // Polling logic: backend takes a few seconds to generate the report via Mistral
-                // We will attempt to fetch it up to 5 times, waiting 2 seconds between attempts.
                 let attempts = 0;
                 let resData = null;
 
@@ -516,14 +431,13 @@
 
                     if (resData.status === "success" && resData.data.final_report) {
                         renderReportUI(resData.data.final_report);
-                        return; // Success, exit loop
+                        return; 
                     }
 
                     attempts++;
-                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
 
-                // If loop finishes without returning, report generation timed out
                 statusBox.innerText = "Report generation taking longer than expected. Please check dashboard later.";
                 statusBox.style.backgroundColor = "#fee2e2";
 
@@ -540,7 +454,6 @@
             const stats = report.interview_statistics || {};
             const ai = report.ai_analysis || {};
 
-            // 1. Header & Stats
             document.getElementById('rep-score').innerText = `Overall Score: ${stats.overall_score || '--'}/10`;
 
             const recElem = document.getElementById('rep-rec');
@@ -553,13 +466,11 @@
                 recElem.className = "rec-maybe";
             }
 
-            // 2. Executive Summary & Core Insights
             document.getElementById('rep-summary').innerText = ai.overall_evaluation || 'N/A';
             document.getElementById('rep-resume-align').innerText = ai.resume_alignment || 'N/A';
             document.getElementById('rep-job-fit').innerText = ai.job_fit || 'N/A';
             document.getElementById('rep-next-steps').innerText = ai.next_steps || 'N/A';
 
-            // 3. Strengths & Weaknesses Lists
             const strengthsList = document.getElementById('rep-strengths');
             strengthsList.innerHTML = '';
             (ai.key_strengths || []).forEach(strength => {
@@ -576,7 +487,6 @@
                 weaknessList.appendChild(li);
             });
 
-            // 4. Technical Assessment Grid (Bars out of 10)
             const techScoresDiv = document.getElementById('rep-tech-scores');
             techScoresDiv.innerHTML = '';
             const techData = ai.technical_assessment || {};
@@ -599,14 +509,12 @@
                 techScoresDiv.appendChild(div);
             }
 
-            // 5. Detailed Q&A Log
             const qaListDiv = document.getElementById('rep-qa-list');
             qaListDiv.innerHTML = '';
             (report.detailed_qa || []).forEach((qa, index) => {
                 let item = document.createElement('div');
                 item.className = "qa-item";
                 
-                // Generate a beautiful badge based on the origin
                 let originBadge = qa.origin === "Dynamic Follow-up" 
                     ? `<span style="background: #f59e0b; color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 10px; vertical-align: middle;">Dynamic Follow-up</span>`
                     : `<span style="background: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; margin-left: 10px; vertical-align: middle;">Pre-planned</span>`;
@@ -614,7 +522,7 @@
                 item.innerHTML = `
                     <div class="q-text">Q${index + 1}: ${qa.question} ${originBadge}</div>
                     <div class="a-text">" ${qa.answer || "No response recorded"} "</div>
-                    <div class="qa-score">Mistral Score: ${qa.score}/10</div>
+                    <div class="qa-score">AI Score: ${qa.score}/10</div>
                 `;
                 qaListDiv.appendChild(item);
             });
