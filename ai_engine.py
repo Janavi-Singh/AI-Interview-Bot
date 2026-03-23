@@ -9,7 +9,7 @@ load_dotenv()
 
 # Configure the NEW Gemini Client
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-MODEL_NAME = "gemini-2.5-flash-lite"
+MODEL_NAME = "gemini-3.1-flash-lite-preview"  # Updated to the latest available model
 
 def get_gemini_json_response(system_prompt: str, user_prompt: str, temperature: float = 0.4) -> dict:
     """Helper function to call Gemini using the NEW SDK and force a strict JSON response."""
@@ -155,56 +155,40 @@ def generate_question_pool(parsed_jd: dict, parsed_resume: dict) -> list:
     except Exception as e:
         print(f"[GEMINI ERROR] Question Generation failed: {e}")
         raise Exception(f"Question Generation failed: {str(e)}")
-
-
 def evaluate_candidate_answer(current_question: dict, user_answer: str, available_questions: list, recent_context: str = "") -> dict:
     """Evaluates the answer and selects the next question ID from the 15-question buffer."""
     print("[GEMINI EVAL] Evaluating answer and dynamically routing...")
     
     try:
-        pool_summary = [
-            {"id": q.get("id", "unknown"), "topic": q.get("topic", "general")} 
-            for q in available_questions
-        ]
-        
-        rubric = current_question.get("ideal_answer_rubric", [])
-        rubric_text = ", ".join(rubric) if isinstance(rubric, list) else str(rubric)
+        # Minimized summary payload
+        pool_summary = [{"id": q.get("id"), "topic": q.get("topic")} for q in available_questions]
+        rubric_text = ", ".join(current_question.get("ideal_answer_rubric", []))
 
-        system_prompt = """
-        You are 'Tara', an AI Technical Interviewer. Score the candidate's answer and maintain a natural conversation.
-        
-        1. Score the 'Candidate Answer' out of 10 based on the 'Ideal Answer Rubric'.
-        2. Decide the next step:
-           - If the answer was poor, set 'next_question_id' to "follow_up" and write a 'next_question_text' to dig deeper.
-           - If the answer was satisfactory, select a 'next_question_id' from the 'Available Next Questions' pool. CRITICAL: Choose a question that covers a DIFFERENT topic or a DIFFERENT project. You must explore all areas of their profile and not get stuck on one single subject.
-        3. Ask the next question in a natural, engaging way. Use a smooth conversational transition (e.g., "Great explanation. Shifting gears to a different topic...").
-        4. Do not mention the candidate's name. Use their project or experience names naturally.
-        5. Ask exactly ONE short question in around 25-35 words. Do NOT compound questions or list options. 
-        
-        You MUST output a valid JSON object matching this EXACT schema:
-        {
-            "score": number,
-            "feedback": "string (private notes for the recruiter)",
-            "next_question_text": "string (The actual, smooth, conversational text you will say next)",
-            "next_question_id": "string (The ID from Available Next Questions, OR 'follow_up')"
-        }
-        """
+        # OPTIMIZED PROMPT: Ultra-concise rules, no feedback generation, strict minimal JSON.
+        system_prompt = """You are Tara, an AI Interviewer. Output STRICT JSON.
+RULES:
+1. Score the answer 1-10 based on the Rubric.
+2. Set 'next_question_id' from Available Topics (force a DIFFERENT topic to explore all areas) OR 'follow_up' if the answer lacked detail.
+3. Write 'next_question_text' (Max 30 words). Add a brief, smooth transition acknowledging the answer before the question. No candidate name.
 
+SCHEMA:
+{"score": int, "next_question_text": "str", "next_question_id": "str"}"""
+
+        # Removed indentation from json.dumps to save input tokens
         user_prompt = f"""
-        --- RECENT CONVERSATION CONTEXT ---
+        --- RECENT CONTEXT ---
         {recent_context}
 
         --- CURRENT TURN ---
-        Question Asked: {current_question.get('question_text', '')}
-        Ideal Answer Rubric: {rubric_text}
-        
+        Asked: {current_question.get('question_text', '')}
+        Rubric: {rubric_text}
         Candidate Answer: "{user_answer}"
         
-        --- AVAILABLE NEXT QUESTIONS TOPICS (Pick one if moving on to a new topic) ---
-        {json.dumps(pool_summary, indent=2)}
+        --- AVAILABLE TOPICS ---
+        {json.dumps(pool_summary)}
         """
 
-        evaluation = get_gemini_json_response(system_prompt, user_prompt, temperature=0.2)
+        evaluation = get_gemini_json_response(system_prompt, user_prompt, temperature=0.1)
         print(f"[GEMINI EVAL] Success! Score: {evaluation.get('score')}")
         
         valid_ids = [q.get("id") for q in available_questions]
@@ -217,7 +201,6 @@ def evaluate_candidate_answer(current_question: dict, user_answer: str, availabl
         print(f"[GEMINI ERROR] Critical Evaluation Failure: {e}")
         return {
             "score": 0, 
-            "feedback": f"Evaluation failed safely: {str(e)}", 
             "next_question_text": "Thank you. Let's move on to our next topic.",
             "next_question_id": available_questions[0].get("id") if available_questions else "follow_up"
         }
