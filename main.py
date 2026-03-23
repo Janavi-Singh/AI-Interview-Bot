@@ -352,33 +352,58 @@ async def get_test_ui(session_id: str):
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="index.html file not found.")
 
-@app.get("/dashboard", response_class=HTMLResponse)
-async def get_dashboard():
+# ==========================================
+# 5. DASHBOARD DATA API (HTTP GET)
+# ==========================================
+@app.get("/api/dashboard")
+async def get_dashboard_data():
+    """Fetches all interviews and formats them for the employer dashboard."""
     try:
-        file_path = os.path.join(os.path.dirname(__file__), "dashboard.html")
+        interviews = list(interviews_collection.find({}, {"_id": 0}))
+        dashboard_data = []
+        now = datetime.now()
+
+        for inv in interviews:
+            status = inv.get("status", "pending")
+            expires_at_str = inv.get("expires_at")
+
+            # Auto-expire logic check
+            if status == "pending" and expires_at_str:
+                try:
+                    expires_at = datetime.fromisoformat(expires_at_str)
+                    if now > expires_at:
+                        status = "expired"
+                        interviews_collection.update_one(
+                            {"sessionId": inv["sessionId"]}, 
+                            {"$set": {"status": "expired"}}
+                        )
+                except ValueError:
+                    pass 
+
+            dashboard_data.append({
+                "candidate_name": inv.get("candidate_name", "Unknown"),
+                "candidate_email": inv.get("candidate_email", "N/A"),
+                "email_sent": inv.get("email_sent", False),
+                "status": status,
+                "expires_at": expires_at_str,
+                "email_sent_at": inv.get("email_sent_at")
+            })
+
+        return {"status": "success", "interviews": dashboard_data}
+    except Exception as e:
+        print(f"[API ERROR] Failed to load dashboard data: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# ==========================================
+# 6. DASHBOARD UI ROUTE (HTML FRONTEND)
+# ==========================================
+@app.get("/dashboard")
+async def view_dashboard():
+    """Serves the Employer Dashboard HTML file."""
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), "dashboard.html") 
         with open(file_path, "r", encoding="utf-8") as file:
             html_content = file.read()
         return HTMLResponse(content=html_content)
     except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="dashboard.html file not found.")
-
-
-@app.get("/api/dashboard")
-async def dashboard_api():
-    try:
-        interviews = list(
-            interviews_collection.find({}, {"_id": 0}).sort("created_at", -1)
-        )
-
-        for interview in interviews:
-            for key, value in interview.items():
-                if isinstance(value, datetime):
-                    interview[key] = value.isoformat()
-
-        return JSONResponse(content={
-            "interviews": interviews,
-            "total": len(interviews)
-        })
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=404, detail="dashboard.html file not found. Ensure it is in the same directory as main.py.")
