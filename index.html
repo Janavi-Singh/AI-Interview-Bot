@@ -49,7 +49,28 @@
 
         .header h2 { margin: 0; font-size: 1.25rem; color: var(--text-main); }
 
-        .content { padding: 40px; min-height: 200px; }
+        .content { 
+            padding: 40px; 
+            min-height: 250px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .q-counter {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: none; 
+        }
 
         .controls {
             padding: 30px;
@@ -96,28 +117,62 @@
             font-weight: bold;
             transition: 0.2s;
         }
-        .q-counter {
-            background: #e0e7ff;
-            color: #4f46e5;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-            display: inline-block;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: none; /* Hidden until AI sends the numbers */
-        }
         .btn-start:hover { background: #1d4ed8; }
 
-        /* Animation for Listening state */
+        /* --- LIVE TRANSCRIPT STYLES --- */
+        .transcript-box {
+            width: 100%;
+            max-width: 650px;
+            margin-top: 30px;
+            padding: 20px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            text-align: left;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+            display: none; 
+        }
+
+        .transcript-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--danger);
+            border-radius: 50%;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        .transcript-text {
+            font-size: 1.1rem;
+            color: #374151;
+            line-height: 1.6;
+            min-height: 1.6rem;
+            font-style: italic;
+        }
+
+        /* Animations */
         @keyframes pulse-green {
             0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
             70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
-        .pulse { animation: pulse-green 1.5s infinite; background: var(--success); }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .pulse { animation: pulse-green 1.5s infinite; background: var(--success) !important; }
 
         /* --- FINAL REPORT UI STYLES --- */
         #report-container { display: none; text-align: left; padding: 0; background: #f8fafc; }
@@ -166,23 +221,27 @@
                 <h2>Hiringhood Interview</h2>
                 <span style="color: #6b7280; font-size: 0.9rem;" id="header-session-id"></span>
             </div>
+            
             <div class="content">
+                <div id="q-counter" class="q-counter">Question 1 of 10</div>
                 <p id="ai-message" style="font-size: 1.5rem; font-weight: 500;">Connecting to Tara...</p>
+                
+                <div id="live-transcript-box" class="transcript-box">
+                    <div class="transcript-label">
+                        <div class="live-dot"></div> Live Captions
+                    </div>
+                    <div id="live-transcript-text" class="transcript-text">Listening...</div>
+                </div>
             </div>
+
             <div class="controls">
                 <div id="record-indicator" class="record-indicator">
                     Waiting for AI...
                 </div>
                 <div id="status-box" class="status-box">Setting up session...</div>
             </div>
-            <div class="content">
-            <div id="q-counter" class="q-counter">Question 1 of 10</div>
-            
-            <p id="ai-message" style="font-size: 1.5rem; font-weight: 500;">Connecting to Tara...</p>
-            </div>
         </div>
         
-
         <div id="report-container">
             <div class="report-header">
                 <h1>Interview Evaluation Report</h1>
@@ -235,6 +294,9 @@
     <script>
         const sessionId = "SESSION_ID_PLACEHOLDER";
         const wsUrl = `ws://localhost:8000/ws/interview/${sessionId}`;
+        
+        const transcriptBox = document.getElementById("live-transcript-box");
+        const transcriptText = document.getElementById("live-transcript-text");
 
         document.getElementById('header-session-id').innerText = `ID: ${sessionId}`;
 
@@ -258,7 +320,6 @@
         const statusBox = document.getElementById("status-box");
 
         function initializePermissions() {
-            // Play a blank audio file to unlock browser autoplay restrictions
             audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
             audioPlayer.play().catch(e => console.log(e));
 
@@ -280,7 +341,8 @@
 
                 if (data.type === "ai_question" || data.type === "interview_complete") {
                     aiMessage.innerText = data.text;
-                    // --- NEW: UPDATE QUESTION COUNTER ---
+                    
+                    // Update Question Counter
                     if (data.current_q_num && data.total_q_num) {
                         const qCounter = document.getElementById('q-counter');
                         qCounter.innerText = `Question ${data.current_q_num} of ${data.total_q_num}`;
@@ -292,15 +354,16 @@
                     recordIndicator.style.background = "#9ca3af"; // Gray
                     recordIndicator.classList.remove("pulse");
                     statusBox.innerText = "Listen to the question carefully.";
+                    
+                    // Hide transcript while AI talks
+                    transcriptBox.style.display = "none";
 
                     if (data.audio_base64) {
                         audioPlayer.src = "data:audio/mp3;base64," + data.audio_base64;
                         audioPlayer.onended = () => {
                             if (data.type !== "interview_complete") {
-                                // AI finished speaking -> AUTOMATICALLY START RECORDING
                                 startRecordingAuto();
                             } else {
-                                // INTERVIEW IS DONE - TRIGGER REPORT FETCH
                                 recordIndicator.style.display = 'none';
                                 statusBox.innerText = "Analyzing interview and generating AI report... Please wait.";
                                 statusBox.style.backgroundColor = "#dbeafe";
@@ -309,13 +372,16 @@
                         };
                     }
                 }
+                else if (data.type === "interim_transcript") {
+                    transcriptText.innerText = data.text;
+                }
                 else if (data.type === "transcript_success") {
                     statusBox.innerText = "Answer captured successfully.";
+                    transcriptText.innerText = data.text;
                 }
                 else if (data.type === "info" || data.type === "error") {
                     statusBox.innerText = data.message;
                     statusBox.style.backgroundColor = "#fee2e2";
-                    // If backend failed to hear, restart auto-recording so they can try again
                     setTimeout(() => {
                         statusBox.style.backgroundColor = "#e5e7eb";
                         startRecordingAuto();
@@ -344,11 +410,14 @@
             ws.send(JSON.stringify({ type: "start_recording" }));
             isRecording = true;
             
-            // Set initial UI for waiting for voice
             recordIndicator.innerText = "🎙️ Mic open. Start speaking...";
             recordIndicator.style.background = "#3b82f6"; // Blue
             recordIndicator.classList.remove("pulse");
             statusBox.innerText = "Waiting for you to speak...";
+            
+            // Show Live Captions
+            transcriptText.innerText = "Listening...";
+            transcriptBox.style.display = "block";
 
             startSilenceDetection();
         }
@@ -391,24 +460,21 @@
                 let volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
 
                 if (volume > 15) { 
-                    // Voice detected! User is speaking.
                     if (!hasSpoken) {
                         hasSpoken = true;
                         recordIndicator.innerText = "🎤 Listening...";
                         recordIndicator.classList.add("pulse");
                     }
-                    silenceStartTime = Date.now(); // Reset silence timer
+                    silenceStartTime = Date.now(); 
                     statusBox.innerText = "Recording... (Will auto-submit when you stop speaking)";
                 } else {
                     let silenceDuration = Date.now() - silenceStartTime;
 
-                    // Condition 1: They started speaking, but paused for 3 seconds -> Submit Answer
                     if (hasSpoken && silenceDuration > 3000) {
                         stopRecordingAuto();
                         return;
                     }
                     
-                    // Condition 2: They never started speaking for 15 seconds -> Timeout & Submit empty
                     if (!hasSpoken && silenceDuration > 15000) {
                         stopRecordingAuto();
                         return;
@@ -419,7 +485,6 @@
             checkAudioLevel();
         }
 
-        // --- FETCH AND RENDER REPORT FUNCTION ---
         async function fetchAndDisplayReport() {
             try {
                 let attempts = 0;
